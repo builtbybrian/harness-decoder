@@ -1,0 +1,14 @@
+{
+  // Tells `wrangler deploy` where the site lives. Without this file the build
+  // fails with "Could not detect a directory containing static files".
+  "name": "harness-decoder",
+  "main": "worker.js",
+  "compatibility_date": "2026-07-29",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
