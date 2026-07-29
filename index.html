@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Harness Decoder — part numbers, read out loud</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --shell:#15181C; --shell-2:#1C2027; --panel:#222731;
+  --rule:#333A45; --rule-soft:#2A303A;
+  --ink:#E6E9EC; --ink-dim:#8A95A2; --ink-faint:#5D6874;
+  --drab:#9FAE4E; --drab-deep:#6E7A33; --silver:#C6CCD2; --flag:#D08A3C;
+  --w0:#1A1A1A; --w1:#6B4A2F; --w2:#C4342B; --w3:#D97A20; --w4:#E3C230;
+  --w5:#3E8E4E; --w6:#2E6DB4; --w7:#7B5EA7; --w8:#9AA0A6; --w9:#F2F2F0;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --cond:"IBM Plex Sans Condensed","Helvetica Neue",Arial,sans-serif;
+  --sans:"IBM Plex Sans",-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--shell);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(var(--rule-soft) 1px,transparent 1px),linear-gradient(90deg,var(--rule-soft) 1px,transparent 1px);
+  background-size:64px 64px;opacity:.35;
+  mask-image:radial-gradient(ellipse 90% 60% at 50% 0%,#000 20%,transparent 78%)}
+.wrap{position:relative;z-index:1;max-width:1000px;margin:0 auto;padding:0 24px 96px}
+
+.topbar{padding:36px 0 20px;border-bottom:1px solid var(--rule)}
+.mark{display:flex;align-items:baseline;gap:14px}
+.mark h1{font-family:var(--cond);font-weight:700;font-size:27px;letter-spacing:.16em;text-transform:uppercase;margin:0}
+.mark .rev{font-family:var(--mono);font-size:11px;color:var(--ink-faint);letter-spacing:.1em;padding-bottom:2px}
+.tagline{color:var(--ink-dim);font-size:14px;margin:10px 0 0;max-width:60ch}
+
+.entry{padding:34px 0 0}
+.entry-label{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:9px}
+input[type=text]{width:100%;background:var(--shell-2);color:var(--ink);border:1px solid var(--rule);border-radius:2px;
+  font-family:var(--mono);font-size:20px;letter-spacing:.05em;padding:16px 18px}
+input[type=text]::placeholder{color:var(--ink-faint)}
+input[type=text]:focus-visible{outline:2px solid var(--drab);outline-offset:2px;border-color:transparent}
+
+/* identification banner — replaces the old dropdown */
+.ident{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin-top:14px;
+  border:1px solid var(--rule);border-left:3px solid var(--rule);border-radius:2px;background:var(--panel);min-height:52px}
+.ident.hit{border-left-color:var(--drab)}
+.ident.warm{border-left-color:var(--flag)}
+.ident .cell{padding:9px 16px;border-right:1px solid var(--rule-soft)}
+.ident .cell:last-child{border-right:none}
+.ident .ck{font-family:var(--mono);font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-faint)}
+.ident .cv{font-family:var(--cond);font-weight:600;font-size:15px;letter-spacing:.03em;margin-top:2px}
+.ident.hit .cv.accent{color:var(--drab)}
+.ident.warm .cv.accent{color:var(--flag)}
+.ident .grow{flex:1}
+.override{margin-left:auto;padding:9px 14px}
+.override select{appearance:none;-webkit-appearance:none;background:transparent;color:var(--ink-dim);
+  border:1px solid var(--rule);border-radius:2px;font-family:var(--mono);font-size:11.5px;padding:5px 26px 5px 9px;cursor:pointer;
+  background-image:linear-gradient(45deg,transparent 50%,var(--ink-faint) 50%),linear-gradient(135deg,var(--ink-faint) 50%,transparent 50%);
+  background-position:calc(100% - 13px) 52%,calc(100% - 9px) 52%;background-size:4px 4px;background-repeat:no-repeat}
+.override select:focus-visible{outline:2px solid var(--drab);outline-offset:2px}
+
+.samples{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;align-items:center}
+.samples .lead{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-right:2px}
+.chip{background:transparent;border:1px solid var(--rule);color:var(--ink-dim);font-family:var(--mono);font-size:12px;padding:5px 10px;border-radius:2px;cursor:pointer}
+.chip:hover{border-color:var(--drab);color:var(--drab)}
+.chip:focus-visible{outline:2px solid var(--drab);outline-offset:2px}
+
+.callout{margin:38px 0 0;overflow-x:auto;padding-bottom:6px}
+.dimrow{display:flex;align-items:flex-start;min-width:min-content}
+.seg{display:flex;flex-direction:column;align-items:center;padding:0 3px}
+.seg .glyph{font-family:var(--mono);font-weight:500;font-size:34px;letter-spacing:.06em;color:var(--ink);white-space:pre;line-height:1.25;transition:color .12s}
+.seg .bracket{width:100%;height:9px;margin-top:5px;border:1px solid var(--rule);border-bottom:none;transition:border-color .12s}
+.seg .tick{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin-top:6px;
+  writing-mode:vertical-rl;text-orientation:mixed;white-space:nowrap;transition:color .12s}
+.seg.inert .glyph{color:var(--ink-faint)}
+.seg.inert .bracket{border-color:transparent}
+.seg.lit .glyph,.seg.lit .tick{color:var(--drab)}
+.seg.lit .bracket{border-color:var(--drab)}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:1px;background:var(--rule);
+  border:1px solid var(--rule);margin-top:32px;border-radius:2px;overflow:hidden}
+.card{background:var(--panel);padding:16px 17px 17px;min-height:112px}
+.card.lit{background:var(--shell-2)}
+.card .k{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-faint);
+  display:flex;justify-content:space-between;gap:8px}
+.card .raw{color:var(--drab)}
+.card .v{font-family:var(--cond);font-weight:600;font-size:19px;letter-spacing:.02em;margin-top:9px;line-height:1.25}
+.card .n{font-size:13px;color:var(--ink-dim);margin-top:6px;line-height:1.45}
+.flagged{display:inline-block;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--flag);border:1px solid var(--flag);border-radius:2px;padding:1px 5px;margin-top:9px}
+
+.swatch{margin-top:28px;border:1px solid var(--rule);border-radius:2px;padding:20px 18px;background:var(--panel)}
+.swatch .k{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:14px}
+.swatch svg{display:block;width:100%;height:auto}
+
+.status{margin-top:30px;border:1px dashed var(--rule);border-radius:2px;padding:24px 20px;color:var(--ink-dim);font-size:14px}
+.status strong{color:var(--ink);font-weight:500}
+.status code{font-family:var(--mono);font-size:13px;color:var(--drab);background:var(--shell-2);padding:2px 6px;border-radius:2px}
+
+/* sourcing */
+.sourcing{margin-top:66px}
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  border-bottom:1px solid var(--rule);padding-bottom:9px;margin-bottom:22px}
+.sec-head h2{font-family:var(--cond);font-weight:700;font-size:15px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-dim);margin:0}
+.sec-head .meta{font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;color:var(--ink-faint)}
+.vendors{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.vend{border:1px solid var(--rule);border-radius:2px;background:var(--panel);padding:17px 17px 15px;display:flex;flex-direction:column}
+.vend .vh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  border-bottom:1px solid var(--rule-soft);padding-bottom:10px;margin-bottom:12px}
+.vend .vn{font-family:var(--cond);font-weight:700;font-size:16px;letter-spacing:.1em;text-transform:uppercase}
+.vend .vs{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
+.vend .vs.live{color:var(--drab)}
+.vend .vs.none{color:var(--flag)}
+.vend .mpn{font-family:var(--mono);font-size:12.5px;color:var(--ink-dim);word-break:break-all}
+.vend .desc{font-size:13px;color:var(--ink-dim);margin-top:7px;line-height:1.45}
+.vend .figs{display:flex;gap:20px;margin-top:14px;flex-wrap:wrap}
+.fig .fk{font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-faint)}
+.fig .fv{font-family:var(--cond);font-weight:700;font-size:22px;letter-spacing:.02em;margin-top:1px;line-height:1.15}
+.fig .fv.dim{color:var(--ink-faint);font-weight:600;font-size:17px}
+.breaks{margin-top:15px;border-top:1px solid var(--rule-soft);padding-top:11px}
+.breaks table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+.breaks td{padding:3px 0;color:var(--ink-dim)}
+.breaks td:last-child{text-align:right;color:var(--ink)}
+.vend .go{margin-top:auto;padding-top:15px}
+.vend .go a{display:inline-block;font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--drab);text-decoration:none;border:1px solid var(--drab-deep);border-radius:2px;padding:7px 12px}
+.vend .go a:hover{background:var(--drab);color:var(--shell);border-color:var(--drab)}
+.vend .go a:focus-visible{outline:2px solid var(--drab);outline-offset:2px}
+.vend.pending{opacity:.55}
+.pulse{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--drab);margin-right:6px;
+  animation:bl 1.1s ease-in-out infinite}
+@keyframes bl{0%,100%{opacity:.25}50%{opacity:1}}
+
+.ref{margin-top:66px}
+.ref-head{font-family:var(--cond);font-weight:700;font-size:15px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--ink-dim);border-bottom:1px solid var(--rule);padding-bottom:9px;margin-bottom:8px}
+.tbl{margin-top:32px}
+.tbl h3{font-family:var(--cond);font-weight:600;font-size:16px;letter-spacing:.09em;text-transform:uppercase;margin:0 0 3px}
+.tbl .sub{font-size:13px;color:var(--ink-faint);margin:0 0 13px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);
+  text-align:left;padding:0 12px 8px 0;border-bottom:1px solid var(--rule)}
+td{padding:9px 12px 9px 0;border-bottom:1px solid var(--rule-soft);vertical-align:top}
+.tbl td:first-child{font-family:var(--mono);color:var(--drab);white-space:nowrap}
+.dot{display:inline-block;width:13px;height:13px;border-radius:50%;border:1px solid var(--rule);margin-right:9px;vertical-align:-2px}
+
+footer{margin-top:72px;padding-top:22px;border-top:1px solid var(--rule);font-size:13px;color:var(--ink-faint);line-height:1.65}
+footer .warn{color:var(--flag)}
+
+@media (max-width:620px){
+  .mark h1{font-size:21px}
+  .seg .glyph{font-size:23px}
+  input[type=text]{font-size:16px}
+  .override{margin-left:0;width:100%}
+  .override select{width:100%}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="topbar">
+    <div class="mark"><h1>Harness Decoder</h1><span class="rev">REV B</span></div>
+    <p class="tagline">Paste any wire or connector part number. It identifies the family on its own, reads out every field it can,
+      and checks Mouser and DigiKey for price and lead time.</p>
+  </header>
+
+  <section class="entry">
+    <div class="entry-label">Part number</div>
+    <input type="text" id="pn" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="D38999/26WD35SN">
+
+    <div class="ident" id="ident" hidden>
+      <div class="cell"><div class="ck">Industry</div><div class="cv accent" id="idIndustry">—</div></div>
+      <div class="cell grow"><div class="ck">Family</div><div class="cv" id="idFamily">—</div></div>
+      <div class="cell"><div class="ck">Decode</div><div class="cv" id="idDepth">—</div></div>
+      <div class="override">
+        <select id="force" aria-label="Override detected family">
+          <option value="">auto</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="samples" id="samples"></div>
+  </section>
+
+  <div id="out"></div>
+
+  <section class="sourcing" id="sourcing" hidden>
+    <div class="sec-head">
+      <h2>Sourcing</h2>
+      <span class="meta" id="srcMeta"></span>
+    </div>
+    <div class="vendors" id="vendors"></div>
+  </section>
+
+  <section class="ref" id="refSection" hidden>
+    <div class="ref-head" id="refHead">Reference</div>
+    <div id="tables"></div>
+  </section>
+
+  <footer>
+    <p><span class="warn">Check before you crimp.</span> Fields marked <em>verify</em> are the ones to confirm against the
+    controlling spec or the manufacturer's catalog before they reach a drawing. Field structure is stable; individual code
+    meanings drift between revisions and between vendors.</p>
+    <p>Distributor pricing and lead times come from Mouser and DigiKey and are indicative only — they reflect
+    catalog stock, not a quote against your quantity, contract, or flight-hardware traceability requirements.</p>
+    <p>Decoding runs in the page. Distributor queries go through this site's own server so no API key is exposed.</p>
+  </footer>
+
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   1 · LOOKUP DATA
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const COLORS = {
+  '0':['Black','var(--w0)'],'1':['Brown','var(--w1)'],'2':['Red','var(--w2)'],
+  '3':['Orange','var(--w3)'],'4':['Yellow','var(--w4)'],'5':['Green','var(--w5)'],
+  '6':['Blue','var(--w6)'],'7':['Violet','var(--w7)'],'8':['Gray','var(--w8)'],'9':['White','var(--w9)']
+};
+const SHELL_SIZE = {A:'9',B:'11',C:'13',D:'15',E:'17',F:'19',G:'21',H:'23',J:'25'};
+const SHELL_STYLE = {'20':'Wall-mounting receptacle','24':'Jam-nut receptacle','26':'Straight plug'};
+const FINISH = {
+  W:['Electroless nickel','Conductive, cadmium-free. The common default on new designs.'],
+  F:['Cadmium, olive drab over nickel','Legacy. Cadmium is restricted on many programs.'],
+  Z:['Zinc-nickel, black','Cadmium-free alternative, higher temperature.'],
+  C:['Cadmium, olive drab over copper','Legacy finish.'],
+  M:['Electroless nickel','Alternate nickel designation.']
+};
+const KEY_POS = {N:'Normal (master keyway)',A:'Alternate A',B:'Alternate B',C:'Alternate C',D:'Alternate D',E:'Alternate E'};
+const CONTACT_AMPS = [
+  ['22D','5 A','Signal. The workhorse in dense arrangements.'],
+  ['20','7.5 A','Signal and low power.'],['16','13 A','Power.'],
+  ['12','23 A','Power.'],['10','39 A','Power.'],['8','46 A','High current.']
+];
+const SLASH_22759 = {
+  '11':['Silver-plated copper','PTFE','200 °C','600 V'],
+  '12':['Nickel-plated copper','PTFE','260 °C','600 V'],
+  '16':['Tin-plated copper','ETFE','150 °C','600 V'],
+  '18':['Silver-plated copper','ETFE','150 °C','600 V'],
+  '32':['Tin-plated copper','Cross-linked ETFE','150 °C','600 V'],
+  '33':['Silver-plated copper','Cross-linked ETFE','150 °C','600 V'],
+  '34':['Nickel-plated copper','Cross-linked ETFE','200 °C','600 V'],
+  '43':['Nickel-plated copper','PTFE / polyimide tape','260 °C','600 V']
+};
+const SHIELD_27500 = {S:'Single shield, silver-plated copper',N:'Single shield, nickel-plated copper',
+  T:'Single shield, tin-plated copper',U:'Unshielded'};
+const J1128 = {
+  GPT:['PVC','85 °C','Thick wall. The traditional US chassis wire.'],
+  HDT:['PVC','85 °C','Heavy wall. Abrasion-exposed routing.'],
+  STD:['PVC','85 °C','Standard wall.'],
+  TWP:['PVC','105 °C','Thin wall. Weight and bundle-diameter savings over GPT.'],
+  SXL:['Cross-linked polyethylene','125 °C','Standard wall. Engine bay capable.'],
+  GXL:['Cross-linked polyethylene','125 °C','Thin wall. The common modern default.'],
+  TXL:['Cross-linked polyethylene','125 °C','Extra-thin wall. Lightest of the family.']
+};
+const ISO_CLASS = {A:'85 °C',B:'100 °C',C:'125 °C',D:'150 °C',E:'175 °C',F:'200 °C',G:'225 °C',H:'250 °C'};
+const AUTO_COLOR = {
+  BK:['Black','var(--w0)'],BN:['Brown','var(--w1)'],BR:['Brown','var(--w1)'],RD:['Red','var(--w2)'],
+  OR:['Orange','var(--w3)'],YE:['Yellow','var(--w4)'],GN:['Green','var(--w5)'],BU:['Blue','var(--w6)'],
+  VT:['Violet','var(--w7)'],GY:['Gray','var(--w8)'],WH:['White','var(--w9)'],PK:['Pink','#E39BB4'],
+  TN:['Tan','#B79A6B'],LB:['Light blue','#7FB2E0'],LG:['Light green','#8FC98A'],
+  DB:['Dark blue','#1E4A82'],DG:['Dark green','#2A5F38']
+};
+const MM2_AWG = [['0.35 mm²','≈ 22 AWG'],['0.5 mm²','≈ 20 AWG'],['0.75 mm²','≈ 18 AWG'],['1.0 mm²','≈ 17 AWG'],
+  ['1.5 mm²','≈ 16 AWG'],['2.0 mm²','≈ 14 AWG'],['2.5 mm²','≈ 14 AWG'],['3.0 mm²','≈ 12 AWG'],
+  ['5.0 mm²','≈ 10 AWG'],['6.0 mm²','≈ 9 AWG'],['10 mm²','≈ 7 AWG'],['16 mm²','≈ 5 AWG']];
+const DIN72552 = [['30','Battery positive, unswitched'],['31','Ground / battery negative'],['15','Ignition-switched positive'],
+  ['50','Starter control'],['53','Wiper motor'],['55','Fog lamp'],['56','Headlamp — 56a high, 56b low'],
+  ['58','Side and tail lamps'],['61','Alternator charge indicator'],['85','Relay coil, ground side'],
+  ['86','Relay coil, supply side'],['87','Relay contact, normally open'],['87a','Relay contact, normally closed']];
+const DEUTSCH_SHELL = {'04':'Receptacle','06':'Plug'};
+
+/* ═══════════════════════════════════════════════════════════════════════
+   2 · REFERENCE TABLE SETS
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const REFS = {
+  circular_mil:{head:'MIL circular connector reference',tables:[
+    {h:'Shell size',s:'The size letter maps to a size number.',cols:['Letter','Size'],rows:Object.entries(SHELL_SIZE)},
+    {h:'Shell style',s:'Common slash numbers. Not the full index.',cols:['Slash','Style'],rows:Object.entries(SHELL_STYLE)},
+    {h:'Finish',s:'Sets temperature rating, conductivity, and cadmium compliance.',cols:['Code','Finish','Notes'],
+      rows:Object.entries(FINISH).map(([k,v])=>[k,v[0],v[1]])},
+    {h:'Contact current rating',s:'Per contact, free air. Derate for bundle and for simultaneous loading.',
+      cols:['Contact size','Rating','Typical use'],rows:CONTACT_AMPS},
+    {h:'Key position',s:'Polarization on otherwise identical shells.',cols:['Code','Position'],rows:Object.entries(KEY_POS)}
+  ]},
+  aero_wire:{head:'Aerospace wire and cable reference',tables:[
+    {h:'Color code',s:'Base color first, then each stripe.',cols:['Digit','Color'],
+      rows:Object.entries(COLORS).map(([k,v])=>[k,'<span class="dot" style="background:'+v[1]+'"></span>'+v[0]])},
+    {h:'M22759 slash sheets',s:'Common sheets. The slash sheet is what sets temperature rating.',
+      cols:['Sheet','Conductor','Insulation','Temp','Volts'],rows:Object.entries(SLASH_22759).map(([k,v])=>['/'+k,v[0],v[1],v[2],v[3]])},
+    {h:'M27500 shield codes',s:'Shield plating must match the temperature of the wire around it.',
+      cols:['Code','Shield'],rows:Object.entries(SHIELD_27500)}
+  ]},
+  auto_wire:{head:'Automotive wire reference',tables:[
+    {h:'SAE J1128 wire types',s:'Wall thickness is what decides bundle diameter.',cols:['Type','Insulation','Temp','Notes'],
+      rows:Object.entries(J1128).map(([k,v])=>[k,v[0],v[1],v[2]])},
+    {h:'ISO 6722 temperature class',s:'The letter after the family designation.',cols:['Class','Rating'],rows:Object.entries(ISO_CLASS)},
+    {h:'Color abbreviations',s:'US convention. German drawings use lowercase two-letter codes — sw, br, rt, or, ge, gn, bl, vi, gr, ws.',
+      cols:['Code','Color'],rows:Object.entries(AUTO_COLOR).map(([k,v])=>[k,'<span class="dot" style="background:'+v[1]+'"></span>'+v[0]])},
+    {h:'Area to gauge',s:'Approximate. Metric sizes do not land on AWG steps — round toward the larger conductor.',
+      cols:['Metric','Nearest AWG'],rows:MM2_AWG},
+    {h:'DIN 72552 terminal numbers',s:'Printed on components and relays, not on wire. Useful beside a European schematic.',
+      cols:['Terminal','Function'],rows:DIN72552}
+  ]},
+  auto_conn:{head:'Automotive connector reference',tables:[
+    {h:'Deutsch shell codes',s:'The two digits after the family name.',cols:['Code','Half'],rows:Object.entries(DEUTSCH_SHELL)},
+    {h:'Contact convention',s:'Applies across sealed automotive families.',cols:['Code','Meaning'],
+      rows:[['P','Pin contacts'],['S','Socket contacts']]}
+  ]}
+};
+
+/* ═══════════════════════════════════════════════════════════════════════
+   3 · PARSERS
+   Each returns { segments } | { error }.  segment.label === null → separator.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const sep = t => ({text:t,label:null});
+const clean = s => s.toUpperCase().replace(/\s+/g,'');
+
+function p38999(raw){
+  const s = clean(raw);
+  const m = s.match(/^(D|M)?38999[\/\-]?(\d{2})([A-Z])([A-Z])\-?(\d{1,2})([PSAC])([NABCDE])?$/);
+  if(!m) return {error:'Recognized as MIL-DTL-38999, but the trailing fields did not parse. Expected: slash style, finish, shell size, insert arrangement, contact type, optional key.'};
+  const [,,style,fin,size,arr,ctype,key] = m;
+  const f = FINISH[fin];
+  const segs = [
+    {text:'D38999',label:'spec',title:'MIL-DTL-38999 Series III',note:'Threaded-coupling circular connector. The default on most current aerospace and defense platforms.'},
+    sep('/'),
+    {text:style,label:'style',title:SHELL_STYLE[style]||'Shell style '+style,
+      note:SHELL_STYLE[style]?'Determines mounting and whether this is the fixed or free half.':'Not in the built-in table — check the slash-sheet index.',verify:!SHELL_STYLE[style]},
+    {text:fin,label:'finish',title:f?f[0]:'Finish '+fin,note:f?f[1]:'Not in the built-in table.',verify:true},
+    {text:size,label:'shell size',title:'Shell size '+(SHELL_SIZE[size]||'—'),
+      note:SHELL_SIZE[size]?'Sets coupling thread and the pool of insert arrangements available.':'Size letters run A through J.',verify:!SHELL_SIZE[size]},
+    {text:arr,label:'arrangement',title:'Arrangement '+(SHELL_SIZE[size]||'?')+'-'+arr,
+      note:'Contact count and gauges come from the arrangement chart for this shell size. The number alone does not carry the count.',verify:true},
+    {text:ctype,label:'contacts',title:ctype==='P'?'Pin contacts':ctype==='S'?'Socket contacts':'Contact style '+ctype,
+      note:ctype==='P'?'Pins go on the de-energized half by convention.':ctype==='S'?'Sockets go on the live half so exposed contacts stay shrouded.':'Non-standard contact designation.',verify:!'PS'.includes(ctype)}
+  ];
+  if(key) segs.push({text:key,label:'key',title:KEY_POS[key]||'Key '+key,
+    note:'Polarization. Alternate positions stop mis-mating in a bank of identical shells.'});
+  return {segments:segs};
+}
+
+function p5015(raw){
+  const s = clean(raw);
+  const m = s.match(/^MS(3100|3101|3102|3106|3108|3057)([A-Z]?)\-?(\d{1,2}[A-Z]?)\-?(\d{1,2})([PS])?([WXYZ])?$/);
+  if(!m) return {error:'Recognized as MIL-DTL-5015, but the trailing fields did not parse. Expected: base number, shell size, insert arrangement, contact type.'};
+  const [,base,cls,size,arr,ctype,key] = m;
+  const BASE = {'3100':'Wall-mounting receptacle','3101':'Cable-connecting receptacle','3102':'Box-mounting receptacle',
+    '3106':'Straight plug','3108':'90° angle plug','3057':'Cable clamp / backshell'};
+  const segs = [
+    {text:'MS'+base,label:'style',title:BASE[base]||'MS'+base,note:'MIL-DTL-5015 threaded circular. Heavy-duty, large shells, common on ground support and industrial equipment.'}
+  ];
+  if(cls) segs.push({text:cls,label:'class',title:'Class '+cls,note:'Environmental class and finish. Resolve against the MS sheet.',verify:true});
+  segs.push(sep('-'));
+  segs.push({text:size,label:'shell size',title:'Shell size '+size,note:'5015 sizes are numeric, unlike the letter sizes used on 38999.'});
+  segs.push(sep('-'));
+  segs.push({text:arr,label:'arrangement',title:'Insert arrangement '+size+'-'+arr,note:'Read contact count and gauge from the 5015 arrangement chart.',verify:true});
+  if(ctype) segs.push({text:ctype,label:'contacts',title:ctype==='P'?'Pin contacts':'Socket contacts',note:'Pins on the de-energized half by convention.'});
+  if(key) segs.push({text:key,label:'key',title:'Alternate key position '+key,note:'Rotated insert. Prevents mis-mating between identical shells.'});
+  return {segments:segs};
+}
+
+function pMicroD(raw){
+  const s = clean(raw);
+  const m = s.match(/^M83513[\/\-](\d{2})\-?([A-Z])(\d{2})([A-Z])?$/);
+  if(!m) return {error:'Recognized as MIL-DTL-83513 micro-D, but the trailing fields did not parse.'};
+  const [,sheet,arr,cnt,term] = m;
+  return {segments:[
+    {text:'M83513',label:'spec',title:'MIL-DTL-83513 micro-D',note:'.050 in pitch rectangular connector. The density choice when a 38999 will not fit — common on satellites and instrumentation.'},
+    sep('/'),
+    {text:sheet,label:'slash sheet',title:'Slash sheet /'+sheet,note:'Sets shell style, gender, termination type, and mounting. This is the field that says whether the part is a plug or a receptacle.',verify:true},
+    sep('-'),
+    {text:arr,label:'arrangement',title:'Arrangement '+arr,
+      note:'Contact count code. Standard micro-D counts run 9, 15, 21, 25, 31, 37, 51, 100 — read the letter against the arrangement chart rather than assuming.',verify:true},
+    {text:cnt,label:'variant',title:'Variant '+cnt,note:'Lead length, mounting hardware, or packaging option depending on the slash sheet.',verify:true},
+    ...(term?[{text:term,label:'termination',title:'Termination code '+term,note:'Wire leads, PCB tails, or solder cups. Resolve on the slash sheet.',verify:true}]:[])
+  ]};
+}
+
+function pContact(raw){
+  const s = clean(raw);
+  const m = s.match(/^M39029[\/\-](\d{1,3})\-?(\d{1,4})$/);
+  if(!m) return {error:'Recognized as MIL-DTL-39029 crimp contacts, but the fields did not parse. Expected slash sheet and contact part number.'};
+  const [,sheet,pn] = m;
+  return {segments:[
+    {text:'M39029',label:'spec',title:'MIL-DTL-39029 crimp contact',note:'The contact itself, ordered separately from the connector. Miss this line on a BOM and the harness cannot be built.'},
+    sep('/'),
+    {text:sheet,label:'slash sheet',title:'Slash sheet /'+sheet,note:'Sets contact family, pin or socket, and which connector series it fits.',verify:true},
+    sep('-'),
+    {text:pn,label:'contact no.',title:'Contact '+pn,note:'Fixes contact size and wire barrel range. The barrel range is what has to match your conductor.',verify:true}
+  ]};
+}
+
+function pBackshell(raw){
+  const s = clean(raw);
+  const m = s.match(/^M85049[\/\-](\d{1,3})\-?(\d{1,3})?([A-Z])?$/);
+  if(!m) return {error:'Recognized as MIL-DTL-85049 accessories, but the fields did not parse.'};
+  const [,sheet,size,fin] = m;
+  const segs = [
+    {text:'M85049',label:'spec',title:'MIL-DTL-85049 connector accessory',note:'Backshell, strain relief, or EMI adapter. Sets bend radius and how the shield terminates.'},
+    sep('/'),
+    {text:sheet,label:'slash sheet',title:'Slash sheet /'+sheet,note:'Sets accessory style — straight, 45°, 90°, banding, or environmental.',verify:true}
+  ];
+  if(size){segs.push(sep('-'));segs.push({text:size,label:'shell size',title:'Shell size '+size,note:'Must match the connector shell it threads onto.',verify:true});}
+  if(fin) segs.push({text:fin,label:'finish',title:'Finish '+fin,note:'Should match the connector finish for galvanic compatibility.',verify:true});
+  return {segments:segs};
+}
+
+function p22759(raw){
+  const s = clean(raw);
+  const m = s.match(/^M?22759[\/\-](\d{1,3})\-(\d{1,2})\-(\d{1,3})$/);
+  if(!m) return {error:'Recognized as M22759 wire, but the fields did not parse. Expected slash sheet, gauge, colour code.'};
+  const [,sheet,awg,code] = m;
+  const d = SLASH_22759[sheet];
+  const names = code.split('').map(c=>COLORS[c]?COLORS[c][0]:'?');
+  const colorText = names.length===1?names[0]:names[0]+' with '+names.slice(1).join(' and ')+' stripe'+(names.length>2?'s':'');
+  return {
+    segments:[
+      {text:'M22759',label:'spec',title:'MIL-DTL-22759 / SAE AS22759',note:'Fluoropolymer-insulated single-conductor aerospace hookup wire.'},
+      sep('/'),
+      {text:sheet,label:'slash sheet',title:d?d[0]+' · '+d[1]:'Slash sheet /'+sheet,
+        note:d?d[2]+' rated, '+d[3]+'. The slash sheet ties conductor plating to insulation — it is the field that decides temperature capability.':'Not in the built-in table. The slash sheet sets plating, insulation, and temperature rating.',verify:true},
+      sep('-'),
+      {text:awg,label:'gauge',title:awg+' AWG',note:'Conductor size. Bundle derating and run length still govern whether this is right for the current.'},
+      sep('-'),
+      {text:code,label:'color',title:colorText,note:'One digit per stripe, base colour first. Same 0–9 sequence as the resistor code.'}
+    ],
+    swatch:{base:code[0],stripes:code.slice(1).split('')}
+  };
+}
+
+function p27500(raw){
+  const s = clean(raw);
+  const m = s.match(/^M?27500\-?(\d{1,2})([A-Z]{2})(\d{1,2})([A-Z])(\d{1,2})?$/);
+  if(!m) return {error:'Recognized as M27500 cable, but the fields did not parse. Expected gauge, basic wire code, conductor count, shield, optional jacket.'};
+  const [,awg,wcode,n,sh,jkt] = m;
+  const segs = [
+    {text:'M27500',label:'spec',title:'MIL-DTL-27500',note:'Shielded and jacketed multiconductor aerospace cable, built from wire specified elsewhere.'},
+    sep('-'),
+    {text:awg,label:'gauge',title:awg+' AWG',note:'Size of each conductor in the cable.'},
+    {text:wcode,label:'basic wire',title:'Basic wire code '+wcode,
+      note:'Points at the component wire spec, usually an M22759 slash sheet. Resolve in the M27500 code table — the two letters do not decode on their own.',verify:true},
+    {text:n,label:'conductors',title:n+' conductor'+(n==='1'?'':'s'),note:'Number of insulated conductors inside the shield.'},
+    {text:sh,label:'shield',title:SHIELD_27500[sh]||'Shield code '+sh,
+      note:SHIELD_27500[sh]?'Shield plating has to survive the same temperature as the insulation around it.':'Not in the built-in table.',verify:!SHIELD_27500[sh]}
+  ];
+  if(jkt) segs.push({text:jkt,label:'jacket',title:'Jacket code '+jkt,note:'Outer jacket material and colour. Resolve in the jacket table.',verify:true});
+  return {segments:segs};
+}
+
+function pDeutsch(raw){
+  const s = clean(raw);
+  const m = s.match(/^(DTM|DTP|DTHD|DT)(04|06)\-(\d{1,2})([PS])\-?([A-Z0-9]{1,6})?$/);
+  if(!m) return {error:'Recognized as a Deutsch DT-family connector, but the fields did not parse. Expected family, shell code, position count, contact type.'};
+  const [,fam,shell,cnt,ctype,opt] = m;
+  const FAM = {DT:['DT series','Size 16 contacts, 13 A. The general-purpose sealed automotive connector.'],
+    DTM:['DTM series','Size 20 contacts, 7.5 A. Compact, for signal and low-power.'],
+    DTP:['DTP series','Size 12 contacts, 25 A. Power circuits.'],
+    DTHD:['DTHD series','Single-position heavy-duty, high current.']};
+  const f = FAM[fam];
+  const segs = [
+    {text:fam,label:'family',title:f[0],note:f[1]},
+    {text:shell,label:'half',title:DEUTSCH_SHELL[shell]||'Shell '+shell,note:'04 is the receptacle, 06 is the plug. They mate as a pair.'},
+    sep('-'),
+    {text:cnt,label:'positions',title:cnt+'-way',note:'Cavity count. Unused cavities need sealing plugs or the connector loses its IP rating.'},
+    {text:ctype,label:'contacts',title:ctype==='P'?'Pin contacts':'Socket contacts',
+      note:'Contacts and wedgelocks are ordered separately from the housing.'}
+  ];
+  if(opt){segs.push(sep('-'));segs.push({text:opt,label:'variant',title:'Keying / colour variant '+opt,
+    note:'Keying position or housing colour. Determines which mating half it will accept.',verify:true});}
+  return {segments:segs};
+}
+
+function pJ1128(raw){
+  const s = clean(raw);
+  let m = s.match(/^(GPT|HDT|STD|TWP|SXL|GXL|TXL)\-(\d{1,2})\-([A-Z]{2})(?:\/([A-Z]{2}))?$/);
+  if(m){
+    const [,type,awg,c1,c2] = m;
+    const d = J1128[type], a1 = AUTO_COLOR[c1], a2 = c2?AUTO_COLOR[c2]:null;
+    const segs = [
+      {text:type,label:'wire type',title:d[0]+' · '+d[1],note:d[2]},
+      sep('-'),
+      {text:awg,label:'gauge',title:awg+' AWG',note:'Automotive practice sizes for voltage drop at 12 V, where drop bites long before the conductor gets warm.'},
+      sep('-'),
+      {text:c1,label:'base',title:a1?a1[0]:'Colour '+c1,note:'Base insulation colour.',verify:!a1}
+    ];
+    if(c2){segs.push(sep('/'));segs.push({text:c2,label:'stripe',title:a2?a2[0]+' stripe':'Stripe '+c2,
+      note:'Tracer stripe. Base plus stripe lets one base colour serve a whole circuit group.',verify:!a2});}
+    return {segments:segs,swatch:{hex:a1?a1[1]:'#666',stripeHex:a2?a2[1]:null}};
+  }
+  m = s.match(/^(FLRY|FLR|FLY|FL)\-?([A-H])?\-(\d{1,2}(?:[.,]\d{1,2})?)\-([A-Z]{2})(?:\/([A-Z]{2}))?$/);
+  if(m){
+    const [,fam,cls,area,c1,c2] = m;
+    const a1 = AUTO_COLOR[c1], a2 = c2?AUTO_COLOR[c2]:null;
+    const segs = [{text:fam,label:'family',title:'German designation '+fam,
+      note:'FLRY is thin-wall PVC, FLR is reduced-wall. The letters describe insulation and wall thickness, not temperature.',verify:true}];
+    if(cls) segs.push({text:cls,label:'class',title:'Class '+cls+' · '+(ISO_CLASS[cls]||'—'),
+      note:'ISO 6722 temperature class. This is the field that has to clear the hottest point on the route.',verify:!ISO_CLASS[cls]});
+    segs.push(sep('-'));
+    segs.push({text:area,label:'area',title:area.replace(',','.')+' mm²',note:'Cross-sectional area, not gauge. See the conversion table below.'});
+    segs.push(sep('-'));
+    segs.push({text:c1,label:'base',title:a1?a1[0]:'Colour '+c1,note:'Base insulation colour.',verify:!a1});
+    if(c2){segs.push(sep('/'));segs.push({text:c2,label:'stripe',title:a2?a2[0]+' stripe':'Stripe '+c2,note:'Tracer stripe.',verify:!a2});}
+    return {segments:segs,swatch:{hex:a1?a1[1]:'#666',stripeHex:a2?a2[1]:null}};
+  }
+  return {error:'Recognized as automotive wire, but the fields did not parse. Expected type-gauge-colour, or family-class-area-colour.'};
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   4 · SIGNATURE REGISTRY  →  this is what autodetect walks.
+   Ordered most-specific first; first hit wins.
+   parse omitted → tier 2 "identified, not field-decoded".
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const SIGNATURES = [
+  // ── aerospace & defense: connectors
+  {id:'d38999',   ind:'Aerospace / defense', fam:'MIL-DTL-38999 Series III circular', re:/^(D|M)?38999/,        parse:p38999, ref:'circular_mil'},
+  {id:'ms38999',  ind:'Aerospace / defense', fam:'MIL-DTL-38999 Series I/II circular', re:/^MS27(46[78]|47[23]|484|505|656)/, ref:'circular_mil',
+    note:'MS-numbered 38999. Series I and II use bayonet coupling rather than the Series III threaded coupling.'},
+  {id:'m83723',   ind:'Aerospace / defense', fam:'MIL-DTL-83723 circular', re:/^M?83723/, ref:'circular_mil',
+    note:'Environment-resistant circular, largely superseded by 38999 on new design.'},
+  {id:'m5015',    ind:'Aerospace / defense', fam:'MIL-DTL-5015 circular', re:/^MS3(100|101|102|106|108|057)/, parse:p5015, ref:'circular_mil'},
+  {id:'m26482',   ind:'Aerospace / defense', fam:'MIL-DTL-26482 circular', re:/^(MS3(11[0246]|12[06])|PT0[267])/, ref:'circular_mil',
+    note:'Bayonet-coupling circular. PT-prefix parts are the Amphenol equivalent.'},
+  {id:'m83513',   ind:'Aerospace / defense', fam:'MIL-DTL-83513 micro-D', re:/^M?83513/, parse:pMicroD, ref:'circular_mil'},
+  {id:'m24308',   ind:'Aerospace / defense', fam:'MIL-DTL-24308 D-subminiature', re:/^M?24308/, ref:'circular_mil',
+    note:'Mil-qualified D-sub. Check whether the callout includes contacts or expects them separately.'},
+  {id:'souriau',  ind:'Aerospace / defense', fam:'Souriau 8ST / 8LT circular', re:/^8(STA|LT|D|HD)/,
+    note:'38999-derivative series. Confirm intermateability with the mating half before substituting.'},
+  {id:'en3645',   ind:'Aerospace / defense', fam:'EN 3645 / EN 2997 circular', re:/^EN(3645|2997)/,
+    note:'European aerospace circular. EN 3645 is broadly the 38999 counterpart.'},
+
+  // ── aerospace & defense: accessories, contacts, terminations
+  {id:'m39029',   ind:'Aerospace / defense', fam:'MIL-DTL-39029 crimp contact', re:/^M?39029/, parse:pContact, ref:'circular_mil'},
+  {id:'m85049',   ind:'Aerospace / defense', fam:'MIL-DTL-85049 backshell / accessory', re:/^M?85049/, parse:pBackshell},
+  {id:'m81969',   ind:'Aerospace / defense', fam:'MIL-I-81969 insertion / removal tool', re:/^M?81969/,
+    note:'Contact tooling. Sized to the contact, not the connector.'},
+  {id:'m22520',   ind:'Aerospace / defense', fam:'MIL-DTL-22520 crimp tool', re:/^M?22520/,
+    note:'Crimp tool and positioner. The positioner is what sets crimp depth — it is a separate line item.'},
+  {id:'m23053',   ind:'Aerospace / defense', fam:'MIL-DTL-23053 heat-shrink sleeving', re:/^M?23053/,
+    note:'Sleeving. The slash sheet sets material, shrink ratio, and temperature rating.'},
+  {id:'m83519',   ind:'Aerospace / defense', fam:'MIL-DTL-83519 solder sleeve / shield termination', re:/^M?83519/,
+    note:'Shield termination. Sizing follows the shield diameter, not the conductor.'},
+  {id:'m81824',   ind:'Aerospace / defense', fam:'MIL-S-81824 splice', re:/^M?81824/,
+    note:'Environmental splice. Check whether the program permits in-line splices at all.'},
+
+  // ── aerospace & defense: wire and cable
+  {id:'m22759',   ind:'Aerospace / defense', fam:'M22759 hookup wire', re:/^M?22759/, parse:p22759, ref:'aero_wire'},
+  {id:'m27500',   ind:'Aerospace / defense', fam:'M27500 multiconductor cable', re:/^M?27500/, parse:p27500, ref:'aero_wire'},
+  {id:'m16878',   ind:'Aerospace / defense', fam:'M16878 hookup wire', re:/^M?16878/, ref:'aero_wire',
+    note:'General-purpose mil hookup wire. Lower temperature capability than the 22759 family.'},
+  {id:'m81044',   ind:'Aerospace / defense', fam:'M81044 cross-linked wire', re:/^M?81044/, ref:'aero_wire',
+    note:'Cross-linked polyalkene. Lighter than PTFE constructions at the cost of temperature rating.'},
+
+  // ── automotive & heavy vehicle
+  {id:'deutsch',  ind:'Automotive / heavy vehicle', fam:'Deutsch DT family', re:/^(DTM|DTP|DTHD|DT)0[46]/, parse:pDeutsch, ref:'auto_conn'},
+  {id:'deutschHD',ind:'Automotive / heavy vehicle', fam:'Deutsch HD / HDP heavy duty', re:/^(HD1[06]|HDP2[04]|HD3[04])/, ref:'auto_conn',
+    note:'Heavy-duty circular. Common on off-highway and diesel platforms.'},
+  {id:'ampseal',  ind:'Automotive / heavy vehicle', fam:'TE AMPSEAL', re:/^AMPSEAL/, ref:'auto_conn',
+    note:'Sealed ECU connector. Catalogue part numbers are numeric — search the distributor listing for the exact housing.'},
+  {id:'superseal',ind:'Automotive / heavy vehicle', fam:'TE Superseal', re:/^SUPERSEAL/, ref:'auto_conn',
+    note:'Sealed 1.0 / 1.5 / 2.8 mm series. The series number is the contact size, and it decides current capacity.'},
+  {id:'metripack',ind:'Automotive / heavy vehicle', fam:'Aptiv Metri-Pack', re:/^(METRI|METRIPACK)/, ref:'auto_conn',
+    note:'Series number — 150, 280, 480, 630 — is contact width in thousandths of an inch. Sealed and unsealed variants share numbering.'},
+  {id:'j1128',    ind:'Automotive / heavy vehicle', fam:'SAE J1128 / ISO 6722 wire', re:/^(GPT|HDT|STD|TWP|SXL|GXL|TXL|FLRY|FLR|FLY)\b/, parse:pJ1128, ref:'auto_wire'},
+
+  // ── commercial & industrial
+  {id:'molexMF',  ind:'Commercial / industrial', fam:'Molex Micro-Fit 3.0', re:/^(43025|43020|43045|430(25|20|45))/,
+    note:'3.0 mm pitch wire-to-board. Housing, terminals, and mating half are three separate part numbers.'},
+  {id:'molexMini',ind:'Commercial / industrial', fam:'Molex Mini-Fit Jr.', re:/^(5557|5559|39\-0[01]|39\-28)/,
+    note:'4.2 mm pitch. Widely used for internal power distribution.'},
+  {id:'jst',      ind:'Commercial / industrial', fam:'JST connector',
+    re:/^((SM|BM|[BS])\d{1,2}[BP]?\-(SRSS|GHS|SUR|XH|PH|ZH|EH|SH|ZE|VH|NV)|(PHR|XHP|ZHR|SHR|EHR|GHR|VHR|SMR|SMP|ZER)\-\d)/,
+    note:'Housing and crimp contacts are ordered separately. Pitch is the first thing to confirm.'},
+  {id:'harting',  ind:'Commercial / industrial', fam:'HARTING Han', re:/^(09\d{8,}|HAN\b)/,
+    note:'Modular rectangular. Hood, insert, and contacts are separate line items.'},
+  {id:'m12',      ind:'Commercial / industrial', fam:'M12 / M8 circular', re:/^M(12|8)[A-Z\-]/,
+    note:'Industrial sensor circular. Coding letter — A, B, D, X — determines what it will mate with.'},
+  {id:'hirose',   ind:'Commercial / industrial', fam:'Hirose DF series', re:/^DF(13|11|3|63|57)/,
+    note:'Fine-pitch wire-to-board. Check whether the callout is housing, contact, or header.'}
+];
+
+const OVERRIDES = SIGNATURES.filter(s=>s.parse);
+
+function detect(raw){
+  const s = clean(raw);
+  for(const sig of SIGNATURES) if(sig.re.test(s)) return sig;
+  return null;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   5 · RENDER
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const $pn=document.getElementById('pn'), $out=document.getElementById('out'),
+      $ident=document.getElementById('ident'), $idInd=document.getElementById('idIndustry'),
+      $idFam=document.getElementById('idFamily'), $idDepth=document.getElementById('idDepth'),
+      $force=document.getElementById('force'), $samples=document.getElementById('samples'),
+      $sourcing=document.getElementById('sourcing'), $vendors=document.getElementById('vendors'),
+      $srcMeta=document.getElementById('srcMeta'), $refSection=document.getElementById('refSection'),
+      $refHead=document.getElementById('refHead'), $tables=document.getElementById('tables');
+
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const EXAMPLES = ['D38999/26WD35SN','M22759/16-20-9','M39029/56-348','DT04-4P-E004','MS3106A-18-1S','GXL-16-BK/WH','M85049/38-15W'];
+
+function wireSwatch(sw){
+  const H=74,r=20;
+  let base,stripes=[];
+  if(sw.hex){base=sw.hex;if(sw.stripeHex)stripes=[sw.stripeHex];}
+  else{base=COLORS[sw.base]?COLORS[sw.base][1]:'#666';stripes=sw.stripes.map(c=>COLORS[c]?COLORS[c][1]:'#666');}
+  let bands='';
+  stripes.forEach((c,i)=>{bands+='<rect x="0" y="'+(14+i*15)+'" width="600" height="8" fill="'+c+'"/>';});
+  return '<div class="swatch"><div class="k">Insulation</div>'+
+    '<svg viewBox="0 0 600 '+H+'" preserveAspectRatio="none" role="img" aria-label="Wire insulation colour">'+
+    '<defs><clipPath id="cw"><rect x="0" y="6" width="600" height="'+(H-12)+'" rx="'+r+'"/></clipPath></defs>'+
+    '<g clip-path="url(#cw)"><rect x="0" y="6" width="600" height="'+(H-12)+'" fill="'+base+'"/>'+bands+'</g>'+
+    '<rect x="0" y="6" width="600" height="'+(H-12)+'" rx="'+r+'" fill="none" stroke="var(--rule)"/></svg></div>';
+}
+
+function renderDecode(res){
+  const segs=res.segments;
+  let dim='<div class="callout"><div class="dimrow">';
+  segs.forEach((s,i)=>{
+    dim += s.label===null
+      ? '<div class="seg inert"><div class="glyph">'+esc(s.text)+'</div></div>'
+      : '<div class="seg" data-i="'+i+'"><div class="glyph">'+esc(s.text)+'</div><div class="bracket"></div><div class="tick">'+esc(s.label)+'</div></div>';
+  });
+  dim+='</div></div>';
+  let cards='<div class="cards">';
+  segs.forEach((s,i)=>{
+    if(s.label===null) return;
+    cards+='<div class="card" data-i="'+i+'"><div class="k"><span>'+esc(s.label)+'</span><span class="raw">'+esc(s.text)+'</span></div>'+
+      '<div class="v">'+esc(s.title)+'</div><div class="n">'+esc(s.note)+'</div>'+
+      (s.verify?'<span class="flagged">verify</span>':'')+'</div>';
+  });
+  cards+='</div>';
+  return dim+cards+(res.swatch?wireSwatch(res.swatch):'');
+}
+
+function linkSegs(){
+  const flip=(i,on)=>{
+    const a=$out.querySelector('.seg[data-i="'+i+'"]'), b=$out.querySelector('.card[data-i="'+i+'"]');
+    if(a)a.classList.toggle('lit',on); if(b)b.classList.toggle('lit',on);
+  };
+  $out.querySelectorAll('.seg[data-i], .card[data-i]').forEach(el=>{
+    const i=el.dataset.i;
+    el.addEventListener('mouseenter',()=>flip(i,true));
+    el.addEventListener('mouseleave',()=>flip(i,false));
+  });
+}
+
+function renderRef(key){
+  if(!key || !REFS[key]){ $refSection.hidden=true; return; }
+  const r=REFS[key];
+  $refHead.textContent=r.head;
+  $tables.innerHTML=r.tables.map(t=>
+    '<div class="tbl"><h3>'+esc(t.h)+'</h3><p class="sub">'+esc(t.s)+'</p><table><thead><tr>'+
+    t.cols.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>'+
+    t.rows.map(row=>'<tr>'+row.map((c,i)=>'<td>'+(i===0?esc(c):c)+'</td>').join('')+'</tr>').join('')+
+    '</tbody></table></div>').join('');
+  $refSection.hidden=false;
+}
+
+/* ── sourcing ─────────────────────────────────────────────────────────── */
+
+const VENDORS = [
+  {id:'mouser', name:'Mouser',  search:q=>'https://www.mouser.com/c/?q='+encodeURIComponent(q)},
+  {id:'digikey',name:'DigiKey', search:q=>'https://www.digikey.com/en/products/result?keywords='+encodeURIComponent(q)}
+];
+
+const money = (n,cur) => (cur==='USD'||!cur?'$':cur+' ')+Number(n).toFixed(Number(n)<10?4:2).replace(/0+$/,'').replace(/\.$/,'');
+
+function vendorCard(v,q,data){
+  if(!data || !data.ok || !data.part){
+    const why = data && data.reason ? data.reason : 'No live connection configured';
+    return '<div class="vend"><div class="vh"><span class="vn">'+esc(v.name)+'</span><span class="vs none">'+esc(why)+'</span></div>'+
+      '<div class="desc">Open the distributor search for this part number.</div>'+
+      '<div class="go"><a href="'+v.search(q)+'" target="_blank" rel="noopener">Search '+esc(v.name)+' →</a></div></div>';
+  }
+  const p=data.part;
+  const breaks=(p.priceBreaks||[]).slice(0,4).map(b=>'<tr><td>'+b.qty+'</td><td>'+money(b.price,b.currency)+'</td></tr>').join('');
+  return '<div class="vend"><div class="vh"><span class="vn">'+esc(v.name)+'</span><span class="vs live">live</span></div>'+
+    '<div class="mpn">'+esc(p.sku||p.mpn||'—')+'</div>'+
+    (p.description?'<div class="desc">'+esc(p.description)+'</div>':'')+
+    '<div class="figs">'+
+      '<div class="fig"><div class="fk">Stock</div><div class="fv'+(p.stock?'':' dim')+'">'+esc(p.stock!=null?Number(p.stock).toLocaleString():'—')+'</div></div>'+
+      '<div class="fig"><div class="fk">Lead time</div><div class="fv'+(p.leadTime?'':' dim')+'">'+esc(p.leadTime||'—')+'</div></div>'+
+    '</div>'+
+    (breaks?'<div class="breaks"><table><tbody>'+breaks+'</tbody></table></div>':'')+
+    '<div class="go"><a href="'+(p.url||v.search(q))+'" target="_blank" rel="noopener">Open on '+esc(v.name)+' →</a></div></div>';
+}
+
+let sourcingToken = 0;
+
+async function loadSourcing(q){
+  const token = ++sourcingToken;
+  $sourcing.hidden=false;
+  $srcMeta.innerHTML='<span class="pulse"></span>querying distributors';
+  $vendors.innerHTML=VENDORS.map(v=>
+    '<div class="vend pending"><div class="vh"><span class="vn">'+esc(v.name)+'</span><span class="vs">checking</span></div>'+
+    '<div class="desc">—</div></div>').join('');
+
+  let payload=null;
+  try{
+    const r=await fetch('/api/sourcing?q='+encodeURIComponent(q),{headers:{Accept:'application/json'}});
+    if(r.ok) payload=await r.json();
+  }catch(e){ /* static host, offline, or no backend — fall through to links */ }
+
+  if(token!==sourcingToken) return;
+
+  const results=(payload&&payload.results)||{};
+  $vendors.innerHTML=VENDORS.map(v=>vendorCard(v,q,results[v.id])).join('');
+  const live=VENDORS.filter(v=>results[v.id]&&results[v.id].ok&&results[v.id].part).length;
+  $srcMeta.textContent = live
+    ? live+' of '+VENDORS.length+' returned live data · '+(payload.cached?'cached':'fetched')+' '+new Date().toLocaleTimeString()
+    : 'No live distributor data — search links below';
+}
+
+/* ── main ─────────────────────────────────────────────────────────────── */
+
+let debounce;
+
+function run(){
+  const raw=$pn.value.trim();
+  if(!raw){
+    $ident.hidden=true; $sourcing.hidden=true; $refSection.hidden=true;
+    $out.innerHTML='<div class="status">Type a part number. It works out the family on its own — '+
+      'try <code>D38999/26WD35SN</code>, <code>M39029/56-348</code>, or <code>DT04-4P-E004</code>.</div>';
+    return;
+  }
+
+  const forced=$force.value ? SIGNATURES.find(s=>s.id===$force.value) : null;
+  const sig = forced || detect(raw);
+
+  $ident.hidden=false;
+  $ident.classList.toggle('hit',!!sig);
+  $ident.classList.toggle('warm',!sig);
+  $idInd.textContent = sig ? sig.ind : 'Unidentified';
+  $idFam.textContent = sig ? sig.fam : 'No signature match';
+
+  if(sig && sig.parse){
+    const res=sig.parse(raw);
+    if(res.error){
+      $idDepth.textContent='Partial';
+      $out.innerHTML='<div class="status"><strong>Family identified, fields did not parse.</strong><br>'+esc(res.error)+
+        '<br><br>Distributor lookup below still runs on the raw part number.</div>';
+    }else{
+      $idDepth.textContent='Full';
+      $out.innerHTML=renderDecode(res);
+      linkSegs();
+    }
+  }else if(sig){
+    $idDepth.textContent='Family only';
+    $out.innerHTML='<div class="status"><strong>'+esc(sig.fam)+'.</strong> '+
+      esc(sig.note||'No field-level parser for this family yet.')+
+      '<br><br>Field-level decode is not built for this family, so the distributor listings below are the fastest route to the specifics.</div>';
+  }else{
+    $idDepth.textContent='None';
+    $out.innerHTML='<div class="status"><strong>No signature matched this part number.</strong> '+
+      'The signature list only covers families with a known numbering convention, and it will never cover everything. '+
+      'Sourcing runs regardless — the distributor listings below are searched on the raw string.</div>';
+  }
+
+  renderRef(sig&&sig.ref);
+  clearTimeout(debounce);
+  debounce=setTimeout(()=>loadSourcing(raw),450);
+}
+
+$force.innerHTML='<option value="">auto</option>'+OVERRIDES.map(s=>'<option value="'+s.id+'">'+esc(s.id)+'</option>').join('');
+$force.addEventListener('change',run);
+$pn.addEventListener('input',run);
+
+$samples.innerHTML='<span class="lead">Try</span>'+EXAMPLES.map(e=>'<button class="chip" type="button">'+esc(e)+'</button>').join('');
+$samples.querySelectorAll('.chip').forEach(b=>b.addEventListener('click',()=>{
+  $pn.value=b.textContent; $force.value=''; run(); $pn.focus();
+}));
+
+run();
+</script>
+</body>
+</html>

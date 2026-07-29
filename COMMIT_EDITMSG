@@ -1,0 +1,6 @@
+Add Workers deploy config
+
+Cloudflare's git integration deploys repositories as Workers, which do not
+use the Pages functions/ file-based routing. worker.js provides the routing
+explicitly and delegates everything else to the static assets binding;
+wrangler.jsonc points the build at public/.
