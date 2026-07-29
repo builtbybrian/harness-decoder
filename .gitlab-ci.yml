@@ -1,0 +1,34 @@
+stages:
+  - verify
+  - deploy
+
+default:
+  image: node:20-alpine
+
+# No npm install here on purpose. The test suite imports only node builtins, and
+# `node --check` needs nothing installed, so the job runs in a few seconds and
+# does not depend on a lockfile being committed.
+verify:
+  stage: verify
+  script:
+    - npm run check
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Publishes public/ to GitLab Pages. Nothing to build — the decoder is a single
+# static file, so this job just hands the folder to Pages as an artifact.
+#
+# The sourcing panel degrades to distributor search links here, because Pages is
+# static and there is no /api/sourcing to answer. That is the intended fallback:
+# the page cannot break in front of a visitor, and there are no API keys to leak.
+# For live pricing, deploy server.js to a Node host instead.
+pages:
+  stage: deploy
+  script:
+    - test -f public/index.html
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

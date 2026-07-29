@@ -1,0 +1,21 @@
+{
+  "name": "harness-decoder",
+  "version": "2.1.0",
+  "description": "Identifies wire and connector part numbers, decodes their fields, and checks Mouser and DigiKey for price and lead time.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node test/decode.test.mjs && node test/adapters.test.mjs",
+    "check": "node --check server.js && node --check functions/api/sourcing.js && npm test",
+    "dev:cf": "wrangler pages dev public"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
